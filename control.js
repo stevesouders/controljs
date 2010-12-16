@@ -270,32 +270,36 @@ CJS.execScript = function(src, onload) {
 		return;
 	}
 
+	// convert the onload parameter from function or string into a function
+	var fonload = ( function(ponload) {
+		switch ( typeof(ponload) ) { 
+			case "string": 
+			  ponload = new Function(ponload);
+			  break;	 
+			case "function": 
+			  // ponload is already a function
+			  break; 
+			default: 
+			  ponload = new Function();
+		}
+		return ponload;
+		
+	})(onload);
+
+	// single function that works with onload and onreadystatechange
+	var func = function() {
+		if ( this.readyState && this.readyState != "complete" && this.readyState != "loaded" ) {
+			return; 
+		}
+		CJS.execCallback(src); 
+		this.onload = this.onreadystatechange = null; // ensure callback is only called once
+		fonload(); 
+	};
+
+	// Add a SCRIPT element pointing to the (already cached) src so the JS gets executed.
 	var se = document.createElement('script');
+	se.onload = se.onreadystatechange = func;  // set this BEFORE setting .src
 	se.src = src;
-
-	// handle onload code
-	// TODO - support this from processExternalScript
-	if ( CJS.bIE || CJS.bOpera ) {
-		var func = function() { if ( "complete" === se.readyState || "loaded" === se.readyState ) { CJS.execCallback(src); } };
-		if ( "function" === typeof(onload) ) {
-			func = function() { if ( "complete" === se.readyState || "loaded" === se.readyState ) { CJS.execCallback(src); onload(); } };
-		}
-		else if ( "string" === typeof(onload) ) {
-			func = function() { if ( "complete" === se.readyState || "loaded" === se.readyState ) { CJS.execCallback(src); CJS.eval(onload); } };
-		}
-		se.onreadystatechange = func;
-	}
-	else {
-		var func = function() { CJS.execCallback(src); };
-		if ( "function" === typeof(onload) ) {
-			func = function() { CJS.execCallback(src); onload(); };
-		}
-		else if ( "string" === typeof(onload) ) {
-			func = function() { CJS.execCallback(src); CJS.eval(onload); };
-		}
-		se.onload = func;
-	}
-
 	var s1 = document.getElementsByTagName('script')[0];
 	s1.parentNode.insertBefore(se, s1);
 };
