@@ -286,6 +286,7 @@ CJS.execScript = function(src, onload) {
 		se.onreadystatechange = func;
 	}
 	else {
+		var func = function() { CJS.execCallback(src); };
 		if ( "function" === typeof(onload) ) {
 			func = function() { CJS.execCallback(src); onload(); };
 		}
