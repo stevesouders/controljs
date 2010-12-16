@@ -49,10 +49,12 @@ CJS.findScripts = function() {
 	var len = aScripts.length;
 	for ( var i = 0; i < len; i++ ) {
 		var script = aScripts[i];
-		if ( "text/cjs" === CJS.getAttribute(script, "type") ) {
+		if ( "text/cjs" === CJS.getAttribute(script, "type") && "undefined" === typeof(script.cjsfound) ) {
 			CJS.aScripts[CJS.aScripts.length] = script;
+			script.cjsfound = true;  // mark the script as found so we can do a second pass later
 		}
 	}
+	//CJS.dprint("found " + CJS.aScripts.length + " CJS scripts");
 };
 
 
@@ -185,6 +187,16 @@ CJS.processNextScript = function() {
 		return;
 	}
 
+	// Do a 2nd pass looking for CJS scripts. 
+	// Because control.js loads async, it's possible for findScripts to be
+	// be called before all SCRIPT tags have been created.
+	CJS.findScripts();
+	if ( CJS.aScripts.length ) {
+		CJS.downloadScripts();
+		setTimeout(CJS.processNextScript, 0);
+		return;
+	}
+
 	// restore the original document.write function definition
 	document.write = CJS.docwriteOrig;
 
@@ -231,9 +243,11 @@ CJS.execScript = function(src, onload) {
 	// TODO - support this from processExternalScript
 	if ( "function" === typeof(onload) ) {
 		se.onload = onload;
+		se.onreadystatechange = onload;
 	}
 	else if ( "string" === typeof(onload) ) {
 		se.onload = function() { CJS.eval(onload); };
+		se.onreadystatechange = function() { CJS.eval(onload); };
 	}
 
 	var s1 = document.getElementsByTagName('script')[0];
@@ -268,6 +282,8 @@ CJS.eval = function(code) {
 //
 
 CJS.init = function() {
+	CJS.bInited = true;  // don't init twice
+
 	// If defer is true then scripts aren't loaded until the onload event.
 	CJS.defer = ( "undefined" === typeof(CJS.defer) ? true : CJS.defer );
 
@@ -339,23 +355,8 @@ else {
 // Override document.write
 // 
 
-CJS.docwriteScript = function(textScript, textAfter) {
-	// extract SRC from script docwrite and insert dynamically
-	var aMatches = textScript.match(/src='([^']*)/i) ||
-                 textScript.match(/src="([^"]*)/i) ||
-                 textScript.match(/src=([^ >]*)/i);
-
-	if ( aMatches ) {
-		var url = aMatches[1];
-		CJS.dprint("docwriteScript url = " + url);
-		var se = document.createElement('script');
-		se.src = url;
-		se.onload = function() { CJS.dprint("wow - successfully loaded script \"" + url + "\"."); };
-		document.body.appendChild(se);
-	}
-};
-
-
+// Attempt to handle document.write. Doesn't work well if the 
+// document.write occurs in the HEAD or if it outputs a SCRIPT tag.
 CJS.docwrite = function(text) {
 	if ( CJS.curScript ) {
 		if ( ! CJS.curScript.docwriteTarget ) {
@@ -365,11 +366,12 @@ CJS.docwrite = function(text) {
 
 		var i1 = text.indexOf("<script");
 		if ( -1 === i1 ) {
-			CJS.dprint("DOCWRITE DOCWRITE DOCWRITE: " + text.replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+			// no scripts
+			CJS.dprint("docwrite: " + text.substring(0, 64));
 			CJS.curScript.docwriteTarget.innerHTML += text;
 		}
 		else {
-			// TODO - test stylesheets, images, etc if they need such a complex treatment
+			// script tag
 			var i2 = text.indexOf("<\/script>", i1) + 9;
 			if ( -1 != i2 ) {
 				var textBefore = text.substring(0, i1);
@@ -377,18 +379,39 @@ CJS.docwrite = function(text) {
 				var textAfter = text.substring(i2+1);
 
 				if ( textBefore ) {
-					CJS.dprint("DOCWRITE DOCWRITE DOCWRITE: " + textBefore.replace(/</g, "&lt;").replace(/>/g, "&gt;"));
-					CJS.curScript.docwriteTarget.innerHTML += textBefore;
+					CJS.dprint("docwrite: " + textBefore.substring(0, 64));
+					CJS.curScript.docwriteTarget.innerHTML += textBefore + textAfter;
 				}
 
-				CJS.docwriteScript(textScript, textAfter);
+				CJS.docwriteScript(textScript);
 			}
 		}
 	}
 	else {
-		alert("ERROR: There's a problem with the async override of document.write.");
+		CJS.dprint("ERROR: There's a problem with the async override of document.write.");
 	}
 };
+
+
+// Insert a SCRIPT element found during document.write.
+CJS.docwriteScript = function(textScript) {
+	// extract SRC from script docwrite and insert dynamically
+	var aMatches = textScript.match(/src='([^']*)/i) ||
+                   textScript.match(/src="([^"]*)/i) ||
+                   textScript.match(/src=([^ >]*)/i);
+
+	if ( aMatches ) {
+		var url = aMatches[1];
+		CJS.dprint("docwriteScript url = " + url);
+		var se = document.createElement('script');
+		se.src = url;
+		document.body.appendChild(se);
+	}
+    else {
+	    // TODO - handle inline SCRIPT code
+	}
+};
+
 
 
 CJS.start();
