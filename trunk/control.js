@@ -125,6 +125,22 @@ CJS.onloadCallback = function(url) {
 };
 
 
+CJS.execCallback = function(url) {
+	CJS.dprint("execCallback: " + url);
+
+	if ( url == CJS.aExecs[0][0] ) {
+		CJS.aExecs.splice(0, 1);  // remove leading URL
+	}
+	else {
+		CJS.dprint("ERROR: We finished executing a script that wasn't on the queue: " + url);
+	}
+
+	if ( CJS.aExecs.length ) {
+		CJS.execScript(CJS.aExecs[0][0], CJS.aExecs[0][1]);
+	}
+};
+
+
 
 
 
@@ -236,19 +252,32 @@ CJS.processExternalScript = function(script, callback) {
 // Presumably the src has already been downloaded and is in the cache.
 CJS.execScript = function(src, onload) {
 	CJS.dprint("execScript: " + src);
+
+	if ( 0 === CJS.aExecs.length ) {
+		// Add this to the queue and continue on to execute it.
+		CJS.aExecs[CJS.aExecs.length] = [src, onload];
+	}
+	else if ( src != CJS.aExecs[0][0] ) {
+		// If there's an execution queue and this SRC isn't first, try later.
+		CJS.dprint("execScript: queueing for later: " + src);
+		CJS.aExecs[CJS.aExecs.length] = [src, onload];
+		return;
+	}
+
 	var se = document.createElement('script');
 	se.src = src;
 
 	// handle onload code
 	// TODO - support this from processExternalScript
+	var func = function() { CJS.execCallback(src); };
 	if ( "function" === typeof(onload) ) {
-		se.onload = onload;
-		se.onreadystatechange = onload;
+		func = function() { CJS.execCallback(src); onload(); };
 	}
 	else if ( "string" === typeof(onload) ) {
-		se.onload = function() { CJS.eval(onload); };
-		se.onreadystatechange = function() { CJS.eval(onload); };
+		func = function() { CJS.execCallback(src); CJS.eval(onload); };
 	}
+	se.onload = func;
+	se.onreadystatechange = func;
 
 	var s1 = document.getElementsByTagName('script')[0];
 	s1.parentNode.insertBefore(se, s1);
@@ -289,6 +318,7 @@ CJS.init = function() {
 
 	CJS.aScripts = [];  // array of CJS script DOM elements 
 	CJS.hLoaded = {};   // hash of script URLs that have loaded
+	CJS.aExecs = [];    // array of script URLs to execute
 
 	CJS.bIE = ( -1 != navigator.userAgent.indexOf('MSIE') );
 	CJS.bChrome = ( -1 != navigator.userAgent.indexOf('Chrome/') );
