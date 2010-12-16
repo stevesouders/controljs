@@ -275,7 +275,7 @@ CJS.execScript = function(src, onload) {
 
 	// handle onload code
 	// TODO - support this from processExternalScript
-	if ( CJS.bIE ) {
+	if ( CJS.bIE || CJS.bOpera ) {
 		var func = function() { if ( "complete" === se.readyState || "loaded" === se.readyState ) { CJS.execCallback(src); } };
 		if ( "function" === typeof(onload) ) {
 			func = function() { if ( "complete" === se.readyState || "loaded" === se.readyState ) { CJS.execCallback(src); onload(); } };
