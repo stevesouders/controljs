@@ -128,6 +128,11 @@ CJS.onloadCallback = function(url) {
 CJS.execCallback = function(url) {
 	CJS.dprint("execCallback: " + url);
 
+	if ( 0 === CJS.aExecs.length ) {
+		CJS.dprint("ERROR: We finished executing a script but the exec queue is empty: " + url);
+		return;
+	}
+
 	if ( url == CJS.aExecs[0][0] ) {
 		CJS.aExecs.splice(0, 1);  // remove leading URL
 	}
@@ -136,6 +141,7 @@ CJS.execCallback = function(url) {
 	}
 
 	if ( CJS.aExecs.length ) {
+		// execute the next script on the queue
 		CJS.execScript(CJS.aExecs[0][0], CJS.aExecs[0][1]);
 	}
 };
@@ -269,15 +275,25 @@ CJS.execScript = function(src, onload) {
 
 	// handle onload code
 	// TODO - support this from processExternalScript
-	var func = function() { CJS.execCallback(src); };
-	if ( "function" === typeof(onload) ) {
-		func = function() { CJS.execCallback(src); onload(); };
+	if ( CJS.bIE ) {
+		var func = function() { if ( "complete" === se.readyState || "loaded" === se.readyState ) { CJS.execCallback(src); } };
+		if ( "function" === typeof(onload) ) {
+			func = function() { if ( "complete" === se.readyState || "loaded" === se.readyState ) { CJS.execCallback(src); onload(); } };
+		}
+		else if ( "string" === typeof(onload) ) {
+			func = function() { if ( "complete" === se.readyState || "loaded" === se.readyState ) { CJS.execCallback(src); CJS.eval(onload); } };
+		}
+		se.onreadystatechange = func;
 	}
-	else if ( "string" === typeof(onload) ) {
-		func = function() { CJS.execCallback(src); CJS.eval(onload); };
+	else {
+		if ( "function" === typeof(onload) ) {
+			func = function() { CJS.execCallback(src); onload(); };
+		}
+		else if ( "string" === typeof(onload) ) {
+			func = function() { CJS.execCallback(src); CJS.eval(onload); };
+		}
+		se.onload = func;
 	}
-	se.onload = func;
-	se.onreadystatechange = func;
 
 	var s1 = document.getElementsByTagName('script')[0];
 	s1.parentNode.insertBefore(se, s1);
@@ -378,6 +394,25 @@ if ( "undefined" != typeof(console) && "undefined" != typeof(console.log) ) {
 }
 else {
 	CJS.dprint = function(msg) { };
+	/*
+	var gDprint = "";
+	CJS.dprint = function(msg) {
+		var div = document.getElementById('dprint');
+		if ( ! div ) {
+			if ( ! document.body ) {
+				gDprint = msg + "<br>" + gDprint;
+				return;
+			}
+			div = document.createElement('div');
+			div.id = "dprint";
+			document.body.appendChild(div);
+			div.style.cssText = "border: 2px solid #999; width: 700px; height: 600px; position: fixed; top: 20px; right: 20px; padding: 8px; background: #FFF; font-size: 10px;";
+			div.innerHTML += gDprint;
+		}
+
+		div.innerHTML = msg + "<br>" + div.innerHTML;
+	};
+	*/
 };
 
 
