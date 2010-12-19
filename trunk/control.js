@@ -34,9 +34,18 @@ CJS.start = function() {
 
 	// Process scripts now or later depending on the defer setting.
 	if ( CJS.defer ) {
-		CJS.addHandler(window, 'load', CJS.processScripts);
+		// It's possible that window.onload already fired, in which case we
+		// need to kickoff processScripts immediately.
+		if ( "undefined" != typeof(document.readyState) || "complete" === document.readyState ) {
+			CJS.processScripts();
+		}
+		else {
+			CJS.addHandler(window, 'load', CJS.processScripts);
+		}
 	}
 	else {
+		// TODO - We need to add a mechanism to do multiple passes before
+		// we support calling processScripts before the DOM is complete.
 		alert("Immediate processing is not currently supported.");
 		CJS.processScripts();
 	}
