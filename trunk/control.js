@@ -36,7 +36,7 @@ CJS.start = function() {
 	if ( CJS.defer ) {
 		// It's possible that window.onload already fired, in which case we
 		// need to kickoff processScripts immediately.
-		if ( "undefined" != typeof(document.readyState) || "complete" === document.readyState ) {
+		if ( "undefined" != typeof(document.readyState) && "complete" === document.readyState ) {
 			CJS.processScripts();
 		}
 		else {
