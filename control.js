@@ -71,12 +71,12 @@ CJS.findScripts = function() {
 // DOWNLOAD PHASE
 //
 
-// Find all scripts with a "cjssrc" attribute.
+// Find all scripts with a "data-cjssrc" attribute.
 CJS.downloadScripts = function() {
 	var len = CJS.aScripts.length;
 	for ( var i = 0; i < len; i++ ) {
 		var script = CJS.aScripts[i];
-		var src = CJS.getAttribute(script, "cjssrc");
+		var src = CJS.getAttribute(script, "data-cjssrc") || CJS.getAttribute(script, "cjssrc"); // backward compatible to earlier "cjssrc" attribute
 		if ( src ) {
 			CJS.downloadScript(src);
 		}
@@ -174,8 +174,8 @@ CJS.processNextScript = function() {
 		var script = CJS.aScripts[0];
 		CJS.curScript = script;  // for docwrite
 
-		var src = CJS.getAttribute(script, "cjssrc");
-		var cjsexec = CJS.getAttribute(script, "cjsexec");
+		var src = CJS.getAttribute(script, "data-cjssrc") || CJS.getAttribute(script, "cjssrc"); // backward compatible to earlier "cjssrc" attribute
+		var cjsexec = CJS.getAttribute(script, "data-cjsexec") || CJS.getAttribute(script, "cjsexec"); // backward compatible to earlier "cjsexec" attribute
 		if ( src ) {
 			// External Script
 			if ( "false" === cjsexec ) {
@@ -257,7 +257,7 @@ CJS.processInlineScript = function(script) {
 CJS.processExternalScript = function(script, callback) {
 	//CJS.dprint("processExternalScript: enter");
 
-	var src = CJS.getAttribute(script, "cjssrc");
+	var src = CJS.getAttribute(script, "data-cjssrc") || CJS.getAttribute(script, "cjssrc"); // backward compatible to earlier "cjssrc" attribute
 	CJS.dprint("processExternalScript: processing script " + src);
 	CJS.execScript(src, callback);
 };
