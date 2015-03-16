@@ -1,0 +1,1 @@
+A JavaScript module for making scripts load faster.
