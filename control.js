@@ -22,6 +22,7 @@ ControlJS - a JavaScript module for loading scripts faster.
 *******************************************************************************/
 
 var CJS = CJS || {};
+var wp_import = wp_import || {};
 
 CJS.start = function() {
 	CJS.init();
@@ -30,9 +31,10 @@ CJS.start = function() {
 	CJS.findScripts();
 
 	// Start scripts downloading in the background ASAP.
-	CJS.downloadScripts();
+	//CJS.downloadScripts();
 
 	// Process scripts now or later depending on the defer setting.
+	/*
 	if ( CJS.defer ) {
 		// It's possible that window.onload already fired, in which case we
 		// need to kickoff processScripts immediately.
@@ -48,11 +50,11 @@ CJS.start = function() {
 		// we support calling processScripts before the DOM is complete.
 		// alert("Immediate processing is not currently supported.");
 		CJS.processScripts();
-	}
+	}*/
 };
 
 
-// Find all scripts with a "text/cjs" type.
+// Find all scripts with a "text/wpi" type.
 CJS.findScripts = function(rootElem) {
 	var aScripts;
 	if(rootElem) {
@@ -64,7 +66,7 @@ CJS.findScripts = function(rootElem) {
 	var len = aScripts.length;
 	for ( var i = 0; i < len; i++ ) {
 		var script = aScripts[i];
-		if ( "text/cjs" === CJS.getAttribute(script, "type") && "undefined" === typeof(script.cjsfound) ) {
+		if ( "text/wpi" === CJS.getAttribute(script, "type") && "undefined" === typeof(script.cjsfound) ) {
 			CJS.aScripts[CJS.aScripts.length] = script;
 			script.cjsfound = true;  // mark the script as found so we can do a second pass later
 		}
@@ -73,35 +75,39 @@ CJS.findScripts = function(rootElem) {
 };
 
 
+/*
 CJS.rescan = function(rootElem) {
 	CJS.findScripts(rootElem);
 	if ( CJS.aScripts.length ) {
-		CJS.downloadScripts();
+		//CJS.downloadScripts();
 		setTimeout(CJS.processNextScript, 0);
 		return;
 	}
 }
+*/
 
 
 // 
 // DOWNLOAD PHASE
 //
 
-// Find all scripts with a "data-cjssrc" attribute.
+// Find all scripts with a "data-wp_import" attribute.
+/*
 CJS.downloadScripts = function() {
 	var len = CJS.aScripts.length;
 	for ( var i = 0; i < len; i++ ) {
 		var script = CJS.aScripts[i];
-		var src = CJS.getAttribute(script, "data-cjssrc") || CJS.getAttribute(script, "cjssrc"); // backward compatible to earlier "cjssrc" attribute
+		var src = CJS.getAttribute(script, "data-wp_import");
 		if ( src ) {
 			CJS.downloadScript(src);
 		}
 	}
 };
+*/
 
 
 // Download a script in such a way that it's not executed immediately.
-CJS.downloadScript = function(url) {
+CJS.downloadScript = function(url, callback) {
 	if(CJS.hStarted[url]) {
 		CJS.dprint("already downloaded (and therefore skipping) " + url);
 		return;
@@ -110,20 +116,20 @@ CJS.downloadScript = function(url) {
 	CJS.dprint("downloading " + url);
 
 	if ( CJS.bIE || CJS.bOpera ) {
-		CJS.downloadScriptImage(url);
+		CJS.downloadScriptImage(url, callback);
 	}
 	else {
-		CJS.downloadScriptObject(url);
+		CJS.downloadScriptObject(url, callback);
 	}
 };
 
 
 // Download a script as an image.
 // This puts it in the browser's cache, but doesn't execute it.
-CJS.downloadScriptImage = function(url) {
+CJS.downloadScriptImage = function(url, callback) {
 	var img = new Image();
-	img.onload = function() { CJS.onloadCallback(url); };
-	img.onerror = function() { CJS.onloadCallback(url); }; // Chrome does onerror (not onload).
+	img.onload = function() { CJS.onloadCallback(url); if (!!callback) { callback(url); } };
+	img.onerror = function() { CJS.onloadCallback(url); if (!!callback) { callback(url); } }; // Chrome does onerror (not onload).
 	img.src = url;
 };
 
@@ -131,7 +137,7 @@ CJS.downloadScriptImage = function(url) {
 // Download a script as an object.
 // This puts it in the browser's cache, but doesn't execute it.
 // Based on http://www.phpied.com/preload-cssjavascript-without-execution/
-CJS.downloadScriptObject = function(url) {
+CJS.downloadScriptObject = function(url, callback) {
 	if ( "undefined" === typeof(document.body) || ! document.body ) {
 		// we need body for appending objects
 		setTimeout("CJS.downloadScriptObject('" + url + "')", 50);
@@ -147,8 +153,8 @@ CJS.downloadScriptObject = function(url) {
 	} else {
 		obj.style.display = "none";
 	}
-	obj.onload = function() { CJS.onloadCallback(url); };
-	obj.onerror = function() { CJS.onloadCallback(url); };
+	obj.onload = function() { CJS.onloadCallback(url); if (!!callback) { callback(url); } };
+	obj.onerror = function() { CJS.onloadCallback(url); if (!!callback) { callback(url); } };
 	//CJS.dprint("downloadScriptObject: appending " + url);
 	document.body.appendChild(obj);
 };
@@ -200,9 +206,10 @@ CJS.processNextScript = function() {
 		var script = CJS.aScripts[0];
 		CJS.curScript = script;  // for docwrite
 
-		var src = CJS.getAttribute(script, "data-cjssrc") || CJS.getAttribute(script, "cjssrc"); // backward compatible to earlier "cjssrc" attribute
-		var cjsexec = CJS.getAttribute(script, "data-cjsexec") || CJS.getAttribute(script, "cjsexec"); // backward compatible to earlier "cjsexec" attribute
+		var src = CJS.getAttribute(script, "data-wp_import");
+		//var cjsexec = CJS.getAttribute(script, "data-cjsexec") || CJS.getAttribute(script, "cjsexec"); // backward compatible to earlier "cjsexec" attribute
 		if ( src ) {
+			/*
 			// External Script
 			if ( "false" === cjsexec ) {
 				CJS.aScripts.splice(0, 1);   // remove leading script
@@ -241,6 +248,7 @@ CJS.processNextScript = function() {
 					setTimeout(CJS.processNextScript,0);
 				}
 			}
+			*/
 		}
 		else {
 			// Inline Script
@@ -257,7 +265,7 @@ CJS.processNextScript = function() {
 	// be called before all SCRIPT tags have been created.
 	CJS.findScripts();
 	if ( CJS.aScripts.length ) {
-		CJS.downloadScripts();
+		//CJS.downloadScripts();
 		setTimeout(CJS.processNextScript, 0);
 		return;
 	}
@@ -292,14 +300,15 @@ CJS.processInlineScript = function(script) {
 
 
 // If downloaded then add the external script as a real script DOM element.
+/*
 CJS.processExternalScript = function(script, callback) {
 	//CJS.dprint("processExternalScript: enter");
 
-	var src = CJS.getAttribute(script, "data-cjssrc") || CJS.getAttribute(script, "cjssrc"); // backward compatible to earlier "cjssrc" attribute
+	var src = CJS.getAttribute(script, "data-wp_import");
 	CJS.dprint("processExternalScript: processing script " + src);
 	CJS.execScript(src, callback);
 };
-
+*/
 
 // Insert a script DOM element.
 // Presumably the src has already been downloaded and is in the cache.
@@ -385,7 +394,7 @@ CJS.eval = function(code) {
 CJS.init = function() {
 	CJS.bInited = true;  // don't init twice
 	
-	CJS.isDebug = window.location.href.match("cjsdebug=true") ? true : false;
+	//CJS.isDebug = window.location.href.match("cjsdebug=true") ? true : false;
 
 	// If defer is true then scripts aren't loaded until the onload event.
 	CJS.defer = ( "undefined" === typeof(CJS.defer) ? true : CJS.defer );
@@ -428,6 +437,7 @@ CJS.getAttribute = function(elem, name) {
 
 
 // Wrapper for addEventListener and attachEvent.
+/*
 CJS.addHandler = function(elem, sType, fn, capture) {
 	capture = (capture) ? true : false;
 	if (elem.addEventListener) {
@@ -446,9 +456,11 @@ CJS.addHandler = function(elem, sType, fn, capture) {
 		}
 	}
 };
+*/
 
 
 // Dynamically define dprint debug logging function.
+/*
 if ( "undefined" != typeof(console) && "undefined" != typeof(console.log) ) {
 	CJS.dprint = function(msg) {
 		if(CJS.isDebug) {
@@ -457,8 +469,9 @@ if ( "undefined" != typeof(console) && "undefined" != typeof(console.log) ) {
 	};
 }
 else {
+*/
 	CJS.dprint = function(msg) {};
-}
+//}
 
 
 //
@@ -524,4 +537,9 @@ CJS.docwriteScript = function(textScript) {
 
 
 
-CJS.start();
+//CJS.start();
+
+wp_import.findInlineScripts = CJS.start;
+wp_import.processInlineScripts = CJS.processScripts;
+wp_import.downloadScript = CJS.downloadScript;
+wp_import.execScript = CJS.execScript;
